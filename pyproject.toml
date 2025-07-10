@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ecommerce-scraper"
+version = "1.0.0"
+description = "A comprehensive e-commerce web scraper with GUI"
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [
+    {name = "Your Name", email = "your.email@example.com"},
+]
+dependencies = [
+    "requests>=2.32.4",
+    "beautifulsoup4>=4.12.3",
+    "pandas>=2.2.2",
+    "openpyxl>=3.1.2",
+    "selenium>=4.21.0",
+    "webdriver-manager>=4.0.2",
+    "lxml>=5.2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+[project.scripts]
+ecommerce-scraper = "src.main:main"
+uv-run-ecommerce-scraper = "src.main:main"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
