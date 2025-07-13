@@ -129,6 +129,8 @@ class EcommerceScraper:
                        variable=self.method_var, value="requests").pack(side=tk.LEFT)
         ttk.Radiobutton(method_frame, text="Selenium (Dynamic sites)", 
                        variable=self.method_var, value="selenium").pack(side=tk.LEFT, padx=(20, 0))
+        ttk.Radiobutton(method_frame, text="API Detection (Auto)", 
+                       variable=self.method_var, value="api").pack(side=tk.LEFT, padx=(20, 0))
         
         # Parameters
         params_frame = ttk.Frame(options_frame)
@@ -317,6 +319,8 @@ class EcommerceScraper:
                 self._scrape_with_requests(url, max_pages, delay, container_selector, container_selector_type, exclude_keywords)
             elif method == "selenium":
                 self._scrape_with_selenium(url, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll)
+            elif method == "api":
+                self._scrape_with_api_detection(url, max_pages, delay, exclude_keywords)
             else:
                 self.set_status(f"Unknown scraping method: {method}")
         except Exception as e:
@@ -327,6 +331,261 @@ class EcommerceScraper:
             self.stop_btn.config(state=tk.DISABLED)
             self.update_header_selection()
             self.update_preview_grid()
+
+    def _detect_api_endpoints(self, driver, url):
+        """Detect potential API endpoints for products"""
+        api_endpoints = []
+        try:
+            # Get performance logs
+            logs = driver.get_log('performance')
+            for entry in logs:
+                try:
+                    message = json.loads(entry['message'])
+                    if 'message' in message and message['message']['method'] == 'Network.responseReceived':
+                        request_url = message['message']['params']['response']['url']
+                        # Look for common API patterns
+                        api_patterns = [
+                            '/api/', '/graphql', '/products', '/catalog', '/search',
+                            'products.json', 'catalog.json', 'search.json',
+                            'product-proxy', 'nikecloud.com/products', 'adtech-prod'
+                        ]
+                        if any(pattern in request_url.lower() for pattern in api_patterns):
+                            api_endpoints.append({
+                                'url': request_url,
+                                'method': 'GET',
+                                'type': 'api'
+                            })
+                except:
+                    continue
+        except Exception as e:
+            self.set_status(f"API detection error: {e}")
+        return api_endpoints
+
+    def _extract_from_api_response(self, response_data):
+        """Extract product data from API response"""
+        products = []
+        try:
+            if isinstance(response_data, dict):
+                # Common API response structures
+                data_keys = ['products', 'items', 'results', 'data', 'catalog', 'objects']
+                for key in data_keys:
+                    if key in response_data:
+                        items = response_data[key]
+                        if isinstance(items, list):
+                            for item in items:
+                                product = self._map_api_product(item)
+                                if product:
+                                    products.append(product)
+                        break
+                # If no standard key found, try to find arrays in the response
+                if not products:
+                    for key, value in response_data.items():
+                        if isinstance(value, list) and len(value) > 0:
+                            # Check if first item looks like a product
+                            if isinstance(value[0], dict) and any(field in value[0] for field in ['name', 'title', 'price', 'id', 'productId']):
+                                for item in value:
+                                    product = self._map_api_product(item)
+                                    if product:
+                                        products.append(product)
+                                break
+        except Exception as e:
+            self.set_status(f"API response parsing error: {e}")
+        return products
+
+    def _map_api_product(self, api_item):
+        """Map API product fields to our standard format"""
+        product = {}
+        try:
+            # Common field mappings
+            field_mappings = {
+                'url': ['url', 'link', 'href', 'product_url', 'productUrl'],
+                'title': ['title', 'name', 'product_name', 'product_title', 'displayName'],
+                'price': ['price', 'cost', 'amount', 'current_price', 'sale_price', 'currentPrice'],
+                'model_number': ['model', 'model_number', 'sku', 'product_id', 'mpn', 'productId'],
+                'upc': ['upc', 'barcode', 'ean', 'gtin'],
+                'imageUrl': ['image', 'image_url', 'imageUrl', 'thumbnail', 'photo', 'heroImage']
+            }
+            
+            for our_field, api_fields in field_mappings.items():
+                for api_field in api_fields:
+                    if api_field in api_item:
+                        product[our_field] = str(api_item[api_field])
+                        break
+                if our_field not in product:
+                    product[our_field] = ''
+            
+            # Add any other fields found
+            for key, value in api_item.items():
+                if key not in [field for fields in field_mappings.values() for field in fields]:
+                    product[key] = str(value)
+                    
+        except Exception as e:
+            self.set_status(f"Product mapping error: {e}")
+        return product
+
+    def _scrape_with_api_detection(self, url, max_pages, delay, exclude_keywords):
+        """Scrape using detected API endpoints"""
+        self.set_status(f"Detecting API endpoints: {url}")
+        options = Options()
+        options.add_argument('--headless')
+        options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        products = []
+        
+        try:
+            # Load the page to capture network requests
+            driver.get(url)
+            time.sleep(5)  # Wait longer for page to load and API calls
+            
+            # Detect API endpoints
+            api_endpoints = self._detect_api_endpoints(driver, url)
+            
+            if api_endpoints:
+                self.set_status(f"Found {len(api_endpoints)} potential API endpoints")
+                for endpoint in api_endpoints:
+                    try:
+                        self.set_status(f"Trying API endpoint: {endpoint['url']}")
+                        # Add headers to mimic browser request
+                        headers = {
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                            'Accept': 'application/json, text/plain, */*',
+                            'Accept-Language': 'en-US,en;q=0.9',
+                            'Referer': url,
+                            'Origin': 'https://www.nike.com'
+                        }
+                        response = requests.get(endpoint['url'], headers=headers, timeout=15)
+                        if response.status_code == 200:
+                            try:
+                                api_data = response.json()
+                                api_products = self._extract_from_api_response(api_data)
+                                if api_products:
+                                    products.extend(api_products)
+                                    self.set_status(f"Extracted {len(api_products)} products from API")
+                                    break  # Use first successful API
+                                else:
+                                    self.set_status("API returned no products, trying next endpoint...")
+                            except json.JSONDecodeError:
+                                self.set_status("API response is not JSON, trying next endpoint...")
+                                continue
+                        else:
+                            self.set_status(f"API request failed with status {response.status_code}")
+                    except Exception as e:
+                        self.set_status(f"API request failed: {e}")
+                        continue
+            
+            # Fallback to Selenium HTML scraping if no API found or API failed
+            if not products:
+                self.set_status("No API found or API failed, falling back to HTML scraping with Selenium")
+                try:
+                    # Scroll to load more products
+                    for i in range(3):
+                        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                        time.sleep(2)
+                    
+                    # Find product elements using Selenium
+                    product_elements = driver.find_elements(By.CSS_SELECTOR, '[data-testid*="product"], [class*="product"], [class*="card"], article, .product-card, .product-item')
+                    
+                    if not product_elements:
+                        # Try more generic selectors
+                        product_elements = driver.find_elements(By.CSS_SELECTOR, 'div[class*="product"], li[class*="product"], div[class*="card"], div[class*="item"]')
+                    
+                    self.set_status(f"Found {len(product_elements)} product elements")
+                    
+                    for element in product_elements:
+                        try:
+                            # Extract data from Selenium element
+                            product_data = self._extract_from_selenium_element(element, url)
+                            if product_data:
+                                products.append(product_data)
+                        except Exception as e:
+                            self.set_status(f"Error extracting from element: {e}")
+                            continue
+                            
+                except Exception as e:
+                    self.set_status(f"Selenium fallback error: {e}")
+                        
+        finally:
+            driver.quit()
+        
+        # Sanitize products
+        products = self._sanitize_products(products, exclude_keywords)
+        self.products = products
+        self.set_status(f"API scraping finished. Total products: {len(products)}")
+
+    def _extract_from_selenium_element(self, element, base_url):
+        """Extract product data from a Selenium WebElement"""
+        try:
+            product = {}
+            
+            # Extract URL
+            try:
+                link = element.find_element(By.CSS_SELECTOR, 'a[href]')
+                href = link.get_attribute('href')
+                if href:
+                    product['url'] = href
+                else:
+                    product['url'] = ''
+            except:
+                product['url'] = ''
+            
+            # Extract title
+            try:
+                title_selectors = ['[data-testid*="title"]', 'h3', 'h4', '.product-title', '.product-name', '[class*="title"]']
+                for selector in title_selectors:
+                    try:
+                        title_elem = element.find_element(By.CSS_SELECTOR, selector)
+                        title = title_elem.text.strip()
+                        if title:
+                            product['title'] = title
+                            break
+                    except:
+                        continue
+                if 'title' not in product:
+                    product['title'] = ''
+            except:
+                product['title'] = ''
+            
+            # Extract price
+            try:
+                price_selectors = ['[data-testid*="price"]', '.price', '[class*="price"]', 'span[class*="price"]']
+                for selector in price_selectors:
+                    try:
+                        price_elem = element.find_element(By.CSS_SELECTOR, selector)
+                        price = price_elem.text.strip()
+                        if price and any(char in price for char in '$€£¥₦₹₽₩'):
+                            product['price'] = price
+                            break
+                    except:
+                        continue
+                if 'price' not in product:
+                    product['price'] = ''
+            except:
+                product['price'] = ''
+            
+            # Extract image
+            try:
+                img = element.find_element(By.CSS_SELECTOR, 'img[src]')
+                src = img.get_attribute('src')
+                if src:
+                    product['imageUrl'] = src
+                else:
+                    product['imageUrl'] = ''
+            except:
+                product['imageUrl'] = ''
+            
+            # Set default values for missing fields
+            product['model_number'] = ''
+            product['upc'] = ''
+            
+            # Only return if we have at least a title or URL
+            if product.get('title') or product.get('url'):
+                return product
+            else:
+                return None
+                
+        except Exception as e:
+            self.set_status(f"Error extracting from Selenium element: {e}")
+            return None
 
     def _extract_product_fields(self, element, base_url):
         # Extract prioritized fields: url, title, price, model_number, upc, imageUrl

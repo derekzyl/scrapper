@@ -14,6 +14,19 @@ else
     fi
 fi
 
+# Check if this is a git repository and pull latest changes
+if [ -d ".git" ]; then
+    echo "[INFO] Git repository detected. Pulling latest changes..."
+    git pull origin master 2>/dev/null || git pull origin main 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "[INFO] Successfully pulled latest changes from repository."
+    else
+        echo "[WARNING] Failed to pull latest changes. Continuing with current version..."
+    fi
+else
+    echo "[INFO] Not a git repository. Skipping git pull."
+fi
+
 echo "[INFO] Launching the E-commerce Web Scraper..."
 uv run ecommerce-scraper
 if [ $? -ne 0 ]; then

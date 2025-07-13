@@ -18,6 +18,24 @@ if %ERRORLEVEL%==0 (
     )
 )
 
+REM Check if this is a git repository and pull latest changes
+if exist ".git" (
+    echo [INFO] Git repository detected. Pulling latest changes...
+    git pull origin master >nul 2>nul
+    if %ERRORLEVEL%==0 (
+        echo [INFO] Successfully pulled latest changes from repository.
+    ) else (
+        git pull origin main >nul 2>nul
+        if %ERRORLEVEL%==0 (
+            echo [INFO] Successfully pulled latest changes from repository.
+        ) else (
+            echo [WARNING] Failed to pull latest changes. Continuing with current version...
+        )
+    )
+) else (
+    echo [INFO] Not a git repository. Skipping git pull.
+)
+
 echo [INFO] Launching the E-commerce Web Scraper...
 uv run ecommerce-scraper
 if %ERRORLEVEL% neq 0 (
