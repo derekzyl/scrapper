@@ -102,17 +102,23 @@ class EcommerceScraper:
         self.url_entry.grid(row=0, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         self.url_entry.insert(0, "https://example-store.com")
         
+        # API Endpoint input (new)
+        ttk.Label(url_frame, text="API Endpoint (Optional):").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.api_endpoint_entry = ttk.Entry(url_frame, width=70, font=('Arial', 10))
+        self.api_endpoint_entry.grid(row=1, column=1, columnspan=3, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        self.api_endpoint_entry.insert(0, "")
+        
         # Product list container selector
-        ttk.Label(url_frame, text="Product List Container:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(url_frame, text="Product List Container:").grid(row=2, column=0, sticky=tk.W, pady=5)
         self.container_selector_type = tk.StringVar(value="none")
         none_radio = ttk.Radiobutton(url_frame, text="None", variable=self.container_selector_type, value="none")
         class_radio = ttk.Radiobutton(url_frame, text="Class", variable=self.container_selector_type, value="class")
         id_radio = ttk.Radiobutton(url_frame, text="ID", variable=self.container_selector_type, value="id")
-        none_radio.grid(row=1, column=1, sticky=tk.W, padx=(10, 0))
-        class_radio.grid(row=1, column=2, sticky=tk.W, padx=(10, 0))
-        id_radio.grid(row=1, column=3, sticky=tk.W, padx=(10, 0))
+        none_radio.grid(row=2, column=1, sticky=tk.W, padx=(10, 0))
+        class_radio.grid(row=2, column=2, sticky=tk.W, padx=(10, 0))
+        id_radio.grid(row=2, column=3, sticky=tk.W, padx=(10, 0))
         self.container_selector_entry = ttk.Entry(url_frame, width=30, font=('Arial', 10))
-        self.container_selector_entry.grid(row=1, column=4, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        self.container_selector_entry.grid(row=2, column=4, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         self.container_selector_entry.insert(0, "product-list")
         
         # Scraping options
@@ -132,9 +138,22 @@ class EcommerceScraper:
         ttk.Radiobutton(method_frame, text="API Detection (Auto)", 
                        variable=self.method_var, value="api").pack(side=tk.LEFT, padx=(20, 0))
         
+        # Headless Selenium option
+        self.headless_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(options_frame, text="Use Headless Selenium (Avoid bot detection)", 
+                       variable=self.headless_var).grid(row=1, column=0, columnspan=4, sticky=tk.W, pady=5)
+        
+        # API Analysis button
+        api_analysis_frame = ttk.Frame(options_frame)
+        api_analysis_frame.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=5)
+        ttk.Button(api_analysis_frame, text="Analyze API Structure", 
+                  command=self.analyze_api_structure).pack(side=tk.LEFT, padx=(0, 10))
+        self.api_analysis_status = ttk.Label(api_analysis_frame, text="", foreground='#27ae60')
+        self.api_analysis_status.pack(side=tk.LEFT)
+        
         # Parameters
         params_frame = ttk.Frame(options_frame)
-        params_frame.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=5)
+        params_frame.grid(row=3, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=5)
         
         ttk.Label(params_frame, text="Max Pages:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         self.max_pages_var = tk.StringVar(value="5")
@@ -198,6 +217,220 @@ class EcommerceScraper:
     def set_status(self, message):
         self.status_var.set(message)
         self.root.update_idletasks()
+        
+    def analyze_api_structure(self):
+        """Analyze API endpoint structure and create key-value mappings"""
+        api_endpoint = self.api_endpoint_entry.get().strip()
+        if not api_endpoint:
+            messagebox.showwarning("Warning", "Please enter an API endpoint first.")
+            return
+            
+        self.api_analysis_status.config(text="Analyzing...")
+        self.root.update_idletasks()
+        
+        # Run analysis in a separate thread
+        threading.Thread(target=self._analyze_api_structure_thread, args=(api_endpoint,), daemon=True).start()
+        
+    def _analyze_api_structure_thread(self, api_endpoint):
+        """Thread function to analyze API structure"""
+        try:
+            self.set_status(f"Analyzing API structure: {api_endpoint}")
+            
+            # Use headless Selenium to get the API response
+            options = Options()
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+            
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+            
+            try:
+                # Navigate to the main site first to get proper headers
+                base_url = self.url_entry.get().strip()
+                if base_url:
+                    driver.get(base_url)
+                    time.sleep(3)
+                
+                # Make the API request
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept': 'application/json, text/plain, */*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': base_url if base_url else api_endpoint,
+                }
+                
+                response = requests.get(api_endpoint, headers=headers, timeout=15)
+                
+                if response.status_code == 200:
+                    try:
+                        api_data = response.json()
+                        analysis_result = self._analyze_json_structure(api_data)
+                        
+                        # Show analysis results in a popup
+                        self.root.after(0, lambda: self._show_api_analysis_results(analysis_result))
+                        
+                    except json.JSONDecodeError:
+                        self.root.after(0, lambda: messagebox.showerror("Error", "API response is not valid JSON"))
+                else:
+                    self.root.after(0, lambda: messagebox.showerror("Error", f"API request failed with status {response.status_code}"))
+                    
+            finally:
+                driver.quit()
+                
+        except Exception as e:
+            self.root.after(0, lambda: messagebox.showerror("Error", f"Analysis failed: {str(e)}"))
+        finally:
+            self.root.after(0, lambda: self.api_analysis_status.config(text=""))
+            
+    def _analyze_json_structure(self, data, path="", max_depth=3):
+        """Recursively analyze JSON structure to find product data patterns"""
+        analysis = {
+            'structure': {},
+            'product_arrays': [],
+            'field_mappings': {},
+            'sample_data': {}
+        }
+        
+        def analyze_recursive(obj, current_path, depth=0):
+            if depth > max_depth:
+                return
+                
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    new_path = f"{current_path}.{key}" if current_path else key
+                    
+                    # Check if this looks like a product array
+                    if isinstance(value, list) and len(value) > 0:
+                        if isinstance(value[0], dict):
+                            # Analyze first item to see if it's a product
+                            first_item = value[0]
+                            product_indicators = ['name', 'title', 'price', 'id', 'productId', 'sku', 'url', 'image']
+                            score = sum(1 for indicator in product_indicators if indicator.lower() in str(first_item).lower())
+                            
+                            if score >= 2:  # Likely a product array
+                                analysis['product_arrays'].append({
+                                    'path': new_path,
+                                    'count': len(value),
+                                    'sample_item': first_item,
+                                    'score': score
+                                })
+                                
+                                # Analyze fields in the first product
+                                if len(value) > 0:
+                                    analysis['sample_data'][new_path] = value[0]
+                                    analysis['field_mappings'][new_path] = self._suggest_field_mappings(value[0])
+                    
+                    analyze_recursive(value, new_path, depth + 1)
+                    
+            elif isinstance(obj, list) and len(obj) > 0:
+                analyze_recursive(obj[0], current_path, depth + 1)
+                
+        analyze_recursive(data, path)
+        return analysis
+        
+    def _suggest_field_mappings(self, product_item):
+        """Suggest field mappings for a product item"""
+        mappings = {}
+        
+        # Common field patterns
+        field_patterns = {
+            'url': ['url', 'link', 'href', 'product_url', 'productUrl', 'permalink'],
+            'title': ['title', 'name', 'product_name', 'product_title', 'displayName', 'label'],
+            'price': ['price', 'cost', 'amount', 'current_price', 'sale_price', 'currentPrice', 'value'],
+            'model_number': ['model', 'model_number', 'sku', 'product_id', 'mpn', 'productId', 'code'],
+            'upc': ['upc', 'barcode', 'ean', 'gtin', 'isbn'],
+            'imageUrl': ['image', 'image_url', 'imageUrl', 'thumbnail', 'photo', 'heroImage', 'img']
+        }
+        
+        for our_field, patterns in field_patterns.items():
+            for pattern in patterns:
+                # Check exact matches first
+                if pattern in product_item:
+                    mappings[our_field] = pattern
+                    break
+                # Check case-insensitive matches
+                elif any(key.lower() == pattern.lower() for key in product_item.keys()):
+                    matching_key = next(key for key in product_item.keys() if key.lower() == pattern.lower())
+                    mappings[our_field] = matching_key
+                    break
+                    
+        return mappings
+        
+    def _show_api_analysis_results(self, analysis):
+        """Show API analysis results in a popup window"""
+        popup = tk.Toplevel(self.root)
+        popup.title("API Structure Analysis Results")
+        popup.geometry("800x600")
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Create scrollable frame
+        canvas = tk.Canvas(popup)
+        scrollbar = ttk.Scrollbar(popup, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Title
+        title_label = ttk.Label(scrollable_frame, text="API Structure Analysis", font=('Arial', 14, 'bold'))
+        title_label.pack(pady=10)
+        
+        if analysis['product_arrays']:
+            # Found product arrays
+            ttk.Label(scrollable_frame, text="Found Product Arrays:", font=('Arial', 12, 'bold')).pack(pady=(10, 5), anchor=tk.W)
+            
+            for i, product_array in enumerate(analysis['product_arrays']):
+                array_frame = ttk.LabelFrame(scrollable_frame, text=f"Array {i+1}: {product_array['path']}")
+                array_frame.pack(fill=tk.X, padx=10, pady=5)
+                
+                ttk.Label(array_frame, text=f"Products found: {product_array['count']}").pack(anchor=tk.W, padx=5, pady=2)
+                ttk.Label(array_frame, text=f"Confidence score: {product_array['score']}/8").pack(anchor=tk.W, padx=5, pady=2)
+                
+                # Show field mappings
+                if product_array['path'] in analysis['field_mappings']:
+                    mappings = analysis['field_mappings'][product_array['path']]
+                    if mappings:
+                        ttk.Label(array_frame, text="Suggested field mappings:").pack(anchor=tk.W, padx=5, pady=(10, 5))
+                        for our_field, api_field in mappings.items():
+                            ttk.Label(array_frame, text=f"  {our_field} → {api_field}").pack(anchor=tk.W, padx=20, pady=1)
+                
+                # Show sample data
+                if product_array['path'] in analysis['sample_data']:
+                    sample = analysis['sample_data'][product_array['path']]
+                    ttk.Label(array_frame, text="Sample product data:").pack(anchor=tk.W, padx=5, pady=(10, 5))
+                    
+                    # Create a text widget for the sample data
+                    sample_text = tk.Text(array_frame, height=8, width=60)
+                    sample_text.pack(padx=5, pady=5, fill=tk.X)
+                    sample_text.insert(tk.END, json.dumps(sample, indent=2))
+                    sample_text.config(state=tk.DISABLED)
+                    
+            # Add button to use this analysis
+            ttk.Button(scrollable_frame, text="Use This API Structure", 
+                      command=lambda: self._use_api_analysis(analysis)).pack(pady=10)
+        else:
+            ttk.Label(scrollable_frame, text="No product arrays found in the API response.", 
+                     font=('Arial', 10)).pack(pady=20)
+            
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+    def _use_api_analysis(self, analysis):
+        """Use the analyzed API structure for scraping"""
+        if analysis['product_arrays']:
+            # Store the analysis results for use during scraping
+            self.api_analysis = analysis
+            messagebox.showinfo("Success", "API analysis stored. You can now start scraping with the 'API Detection' method.")
+        else:
+            messagebox.showwarning("Warning", "No product arrays found in the analysis.")
 
     def update_header_selection(self):
         # Called after scraping to update header checkboxes
@@ -304,6 +537,7 @@ class EcommerceScraper:
         self.products = []
         self.is_scraping = True
         url = self.url_entry.get().strip()
+        api_endpoint = self.api_endpoint_entry.get().strip()
         method = self.method_var.get()
         max_pages = int(self.max_pages_var.get() or 1)
         delay = float(self.delay_var.get() or 1)
@@ -311,16 +545,17 @@ class EcommerceScraper:
         container_selector_type = self.container_selector_type.get()
         exclude_keywords = [k.strip().lower() for k in self.exclude_keywords_var.get().split(',') if k.strip()]
         infinite_scroll = self.infinite_scroll_var.get()
-        threading.Thread(target=self._scrape_thread, args=(url, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll), daemon=True).start()
+        headless = self.headless_var.get()
+        threading.Thread(target=self._scrape_thread, args=(url, api_endpoint, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless), daemon=True).start()
 
-    def _scrape_thread(self, url, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll):
+    def _scrape_thread(self, url, api_endpoint, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless):
         try:
             if method == "requests":
                 self._scrape_with_requests(url, max_pages, delay, container_selector, container_selector_type, exclude_keywords)
             elif method == "selenium":
-                self._scrape_with_selenium(url, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll)
+                self._scrape_with_selenium(url, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless)
             elif method == "api":
-                self._scrape_with_api_detection(url, max_pages, delay, exclude_keywords)
+                self._scrape_with_api_detection(url, api_endpoint, max_pages, delay, exclude_keywords, headless)
             else:
                 self.set_status(f"Unknown scraping method: {method}")
         except Exception as e:
@@ -423,94 +658,204 @@ class EcommerceScraper:
             self.set_status(f"Product mapping error: {e}")
         return product
 
-    def _scrape_with_api_detection(self, url, max_pages, delay, exclude_keywords):
-        """Scrape using detected API endpoints"""
-        self.set_status(f"Detecting API endpoints: {url}")
-        options = Options()
-        options.add_argument('--headless')
-        options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    def _scrape_with_api_detection(self, url, api_endpoint, max_pages, delay, exclude_keywords, headless):
+        """Scrape using detected API endpoints or direct API endpoint"""
         products = []
         
-        try:
-            # Load the page to capture network requests
-            driver.get(url)
-            time.sleep(5)  # Wait longer for page to load and API calls
+        # If direct API endpoint is provided, use it
+        if api_endpoint:
+            self.set_status(f"Using direct API endpoint: {api_endpoint}")
+            try:
+                # Use analyzed API structure if available
+                if hasattr(self, 'api_analysis') and self.api_analysis:
+                    products = self._extract_from_analyzed_api(api_endpoint, url)
+                else:
+                    # Use standard API extraction
+                    products = self._extract_from_direct_api(api_endpoint, url)
+                    
+                if products:
+                    self.set_status(f"Extracted {len(products)} products from direct API")
+                else:
+                    self.set_status("Direct API returned no products, trying auto-detection...")
+                    
+            except Exception as e:
+                self.set_status(f"Direct API failed: {e}, trying auto-detection...")
+        
+        # If no direct API or direct API failed, try auto-detection
+        if not products:
+            self.set_status(f"Auto-detecting API endpoints: {url}")
+            options = Options()
+            if headless:
+                options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
             
-            # Detect API endpoints
-            api_endpoints = self._detect_api_endpoints(driver, url)
-            
-            if api_endpoints:
-                self.set_status(f"Found {len(api_endpoints)} potential API endpoints")
-                for endpoint in api_endpoints:
-                    try:
-                        self.set_status(f"Trying API endpoint: {endpoint['url']}")
-                        # Add headers to mimic browser request
-                        headers = {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                            'Accept': 'application/json, text/plain, */*',
-                            'Accept-Language': 'en-US,en;q=0.9',
-                            'Referer': url,
-                            'Origin': 'https://www.nike.com'
-                        }
-                        response = requests.get(endpoint['url'], headers=headers, timeout=15)
-                        if response.status_code == 200:
-                            try:
-                                api_data = response.json()
-                                api_products = self._extract_from_api_response(api_data)
-                                if api_products:
-                                    products.extend(api_products)
-                                    self.set_status(f"Extracted {len(api_products)} products from API")
-                                    break  # Use first successful API
-                                else:
-                                    self.set_status("API returned no products, trying next endpoint...")
-                            except json.JSONDecodeError:
-                                self.set_status("API response is not JSON, trying next endpoint...")
-                                continue
-                        else:
-                            self.set_status(f"API request failed with status {response.status_code}")
-                    except Exception as e:
-                        self.set_status(f"API request failed: {e}")
-                        continue
-            
-            # Fallback to Selenium HTML scraping if no API found or API failed
-            if not products:
-                self.set_status("No API found or API failed, falling back to HTML scraping with Selenium")
-                try:
-                    # Scroll to load more products
-                    for i in range(3):
-                        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                        time.sleep(2)
-                    
-                    # Find product elements using Selenium
-                    product_elements = driver.find_elements(By.CSS_SELECTOR, '[data-testid*="product"], [class*="product"], [class*="card"], article, .product-card, .product-item')
-                    
-                    if not product_elements:
-                        # Try more generic selectors
-                        product_elements = driver.find_elements(By.CSS_SELECTOR, 'div[class*="product"], li[class*="product"], div[class*="card"], div[class*="item"]')
-                    
-                    self.set_status(f"Found {len(product_elements)} product elements")
-                    
-                    for element in product_elements:
+            try:
+                # Load the page to capture network requests
+                driver.get(url)
+                time.sleep(5)  # Wait longer for page to load and API calls
+                
+                # Detect API endpoints
+                api_endpoints = self._detect_api_endpoints(driver, url)
+                
+                if api_endpoints:
+                    self.set_status(f"Found {len(api_endpoints)} potential API endpoints")
+                    for endpoint in api_endpoints:
                         try:
-                            # Extract data from Selenium element
-                            product_data = self._extract_from_selenium_element(element, url)
-                            if product_data:
-                                products.append(product_data)
+                            self.set_status(f"Trying API endpoint: {endpoint['url']}")
+                            # Add headers to mimic browser request
+                            headers = {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                                'Accept': 'application/json, text/plain, */*',
+                                'Accept-Language': 'en-US,en;q=0.9',
+                                'Referer': url,
+                            }
+                            response = requests.get(endpoint['url'], headers=headers, timeout=15)
+                            if response.status_code == 200:
+                                try:
+                                    api_data = response.json()
+                                    api_products = self._extract_from_api_response(api_data)
+                                    if api_products:
+                                        products.extend(api_products)
+                                        self.set_status(f"Extracted {len(api_products)} products from API")
+                                        break  # Use first successful API
+                                    else:
+                                        self.set_status("API returned no products, trying next endpoint...")
+                                except json.JSONDecodeError:
+                                    self.set_status("API response is not JSON, trying next endpoint...")
+                                    continue
+                            else:
+                                self.set_status(f"API request failed with status {response.status_code}")
                         except Exception as e:
-                            self.set_status(f"Error extracting from element: {e}")
+                            self.set_status(f"API request failed: {e}")
                             continue
-                            
-                except Exception as e:
-                    self.set_status(f"Selenium fallback error: {e}")
+                
+                # Fallback to Selenium HTML scraping if no API found or API failed
+                if not products:
+                    self.set_status("No API found or API failed, falling back to HTML scraping with Selenium")
+                    try:
+                        # Scroll to load more products
+                        for i in range(3):
+                            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                            time.sleep(2)
                         
-        finally:
-            driver.quit()
+                        # Find product elements using Selenium
+                        product_elements = driver.find_elements(By.CSS_SELECTOR, '[data-testid*="product"], [class*="product"], [class*="card"], article, .product-card, .product-item')
+                        
+                        if not product_elements:
+                            # Try more generic selectors
+                            product_elements = driver.find_elements(By.CSS_SELECTOR, 'div[class*="product"], li[class*="product"], div[class*="card"], div[class*="item"]')
+                        
+                        self.set_status(f"Found {len(product_elements)} product elements")
+                        
+                        for element in product_elements:
+                            try:
+                                # Extract data from Selenium element
+                                product_data = self._extract_from_selenium_element(element, url)
+                                if product_data:
+                                    products.append(product_data)
+                            except Exception as e:
+                                self.set_status(f"Error extracting from element: {e}")
+                                continue
+                                
+                    except Exception as e:
+                        self.set_status(f"Selenium fallback error: {e}")
+                            
+            finally:
+                driver.quit()
         
         # Sanitize products
         products = self._sanitize_products(products, exclude_keywords)
         self.products = products
         self.set_status(f"API scraping finished. Total products: {len(products)}")
+        
+    def _extract_from_direct_api(self, api_endpoint, base_url):
+        """Extract products from a direct API endpoint"""
+        products = []
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': base_url if base_url else api_endpoint,
+            }
+            
+            response = requests.get(api_endpoint, headers=headers, timeout=15)
+            if response.status_code == 200:
+                api_data = response.json()
+                products = self._extract_from_api_response(api_data)
+            else:
+                self.set_status(f"Direct API request failed with status {response.status_code}")
+                
+        except Exception as e:
+            self.set_status(f"Direct API extraction error: {e}")
+            
+        return products
+        
+    def _extract_from_analyzed_api(self, api_endpoint, base_url):
+        """Extract products using the analyzed API structure"""
+        products = []
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': base_url if base_url else api_endpoint,
+            }
+            
+            response = requests.get(api_endpoint, headers=headers, timeout=15)
+            if response.status_code == 200:
+                api_data = response.json()
+                
+                # Use the analyzed structure to extract products
+                for product_array in self.api_analysis['product_arrays']:
+                    # Navigate to the product array using the path
+                    path_parts = product_array['path'].split('.')
+                    current_data = api_data
+                    
+                    for part in path_parts:
+                        if isinstance(current_data, dict) and part in current_data:
+                            current_data = current_data[part]
+                        else:
+                            break
+                    
+                    if isinstance(current_data, list):
+                        mappings = self.api_analysis['field_mappings'].get(product_array['path'], {})
+                        
+                        for item in current_data:
+                            product = self._map_api_product_with_mappings(item, mappings)
+                            if product:
+                                products.append(product)
+                                
+            else:
+                self.set_status(f"Analyzed API request failed with status {response.status_code}")
+                
+        except Exception as e:
+            self.set_status(f"Analyzed API extraction error: {e}")
+            
+        return products
+        
+    def _map_api_product_with_mappings(self, api_item, mappings):
+        """Map API product fields using the analyzed mappings"""
+        product = {}
+        try:
+            # Use the analyzed mappings
+            for our_field, api_field in mappings.items():
+                if api_field in api_item:
+                    product[our_field] = str(api_item[api_field])
+                else:
+                    product[our_field] = ''
+            
+            # Add any other fields found
+            for key, value in api_item.items():
+                if key not in mappings.values():
+                    product[key] = str(value)
+                    
+        except Exception as e:
+            self.set_status(f"Product mapping error: {e}")
+        return product
 
     def _extract_from_selenium_element(self, element, base_url):
         """Extract product data from a Selenium WebElement"""
@@ -744,10 +1089,14 @@ class EcommerceScraper:
         self.products = products
         self.set_status(f"Scraping finished. Total products: {len(products)}")
 
-    def _scrape_with_selenium(self, url, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll):
+    def _scrape_with_selenium(self, url, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless):
         self.set_status(f"Scraping with Selenium: {url}")
         options = Options()
-        options.add_argument('--headless')
+        if headless:
+            options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.set_capability('goog:loggingPrefs', {'performance': 'ALL'})
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         products = []
         try:
@@ -928,20 +1277,37 @@ def show_documentation_popup(root, on_close):
     label_basic.pack(anchor=tk.W, pady=(0,2))
     label_basic_text = tk.Label(inner_frame, text="""
 1. Enter the website URL you want to scrape.
-2. (Optional) Select 'Class' or 'ID' and enter the name of the container that holds the product list.
+2. (Optional) Enter a direct API endpoint if you know the site's product API.
+3. (Optional) Select 'Class' or 'ID' and enter the name of the container that holds the product list.
    - If unsure, leave as 'None'.
-3. Choose your scraping method: 'Requests' (faster, for simple sites) or 'Selenium' (for dynamic sites).
-4. Set 'Max Pages' and 'Delay' (in seconds) between page loads.
-5. (Optional) Add keywords to exclude ads or non-product items.
-6. (Optional) Enable 'Infinite Scroll' for sites that load more products as you scroll (Selenium only).
-7. Click 'Start Scraping'.
-8. After scraping, select which fields to keep and optionally rename them.
-9. Preview the data, then export to CSV or Excel.
+4. Choose your scraping method:
+   - 'Requests' (faster, for simple sites)
+   - 'Selenium' (for dynamic sites)
+   - 'API Detection' (automatically finds and uses API endpoints)
+5. Enable 'Headless Selenium' to avoid bot detection (recommended).
+6. Set 'Max Pages' and 'Delay' (in seconds) between page loads.
+7. (Optional) Add keywords to exclude ads or non-product items.
+8. (Optional) Enable 'Infinite Scroll' for sites that load more products as you scroll (Selenium only).
+9. Click 'Start Scraping'.
+10. After scraping, select which fields to keep and optionally rename them.
+11. Preview the data, then export to CSV or Excel.
 """, justify=tk.LEFT, font=("Arial", 11), bg="#f6f8fa", wraplength=600)
     label_basic_text.pack(anchor=tk.W, pady=(0,10))
     label_adv = tk.Label(inner_frame, text="ADVANCED USAGE:", font=("Arial", 12, "bold"), fg="#c0392b", bg="#f6f8fa", anchor="w")
     label_adv.pack(anchor=tk.W, pady=(0,2))
     label_adv_text = tk.Label(inner_frame, text="""
+API ENDPOINT FEATURE:
+- If you know the site's product API endpoint, enter it directly for faster scraping.
+- Use 'Analyze API Structure' to automatically detect product arrays and field mappings.
+- The analyzer will show you the JSON structure and suggest field mappings.
+- This is especially useful for sites with complex API responses.
+
+HEADLESS SELENIUM:
+- Enable this option to run Selenium in headless mode (no browser window).
+- Helps avoid bot detection and uses less system resources.
+- Recommended for production scraping.
+
+CONTAINER SELECTION:
 - To get the product list container's class or id:
    1. Open the website in your browser.
    2. Right-click on the product list and select 'Inspect' or 'Inspect Element'.
