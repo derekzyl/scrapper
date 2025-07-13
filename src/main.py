@@ -7,6 +7,7 @@ import csv
 import json
 import re
 import time
+import random
 from urllib.parse import urljoin, urlparse
 import threading
 from selenium import webdriver
@@ -143,9 +144,25 @@ class EcommerceScraper:
         ttk.Checkbutton(options_frame, text="Use Headless Selenium (Avoid bot detection)", 
                        variable=self.headless_var).grid(row=1, column=0, columnspan=4, sticky=tk.W, pady=5)
         
+        # Anti-detection options
+        anti_detection_frame = ttk.Frame(options_frame)
+        anti_detection_frame.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=5)
+        
+        self.rotate_ua_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(anti_detection_frame, text="Rotate User Agents", 
+                       variable=self.rotate_ua_var).pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.use_proxy_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(anti_detection_frame, text="Use Proxy (if available)", 
+                       variable=self.use_proxy_var).pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.delay_requests_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(anti_detection_frame, text="Add Random Delays", 
+                       variable=self.delay_requests_var).pack(side=tk.LEFT)
+        
         # API Analysis button
         api_analysis_frame = ttk.Frame(options_frame)
-        api_analysis_frame.grid(row=2, column=0, columnspan=4, sticky=tk.W, pady=5)
+        api_analysis_frame.grid(row=3, column=0, columnspan=4, sticky=tk.W, pady=5)
         ttk.Button(api_analysis_frame, text="Analyze API Structure", 
                   command=self.analyze_api_structure).pack(side=tk.LEFT, padx=(0, 10))
         self.api_analysis_status = ttk.Label(api_analysis_frame, text="", foreground='#27ae60')
@@ -153,7 +170,7 @@ class EcommerceScraper:
         
         # Parameters
         params_frame = ttk.Frame(options_frame)
-        params_frame.grid(row=3, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=5)
+        params_frame.grid(row=4, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=5)
         
         ttk.Label(params_frame, text="Max Pages:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         self.max_pages_var = tk.StringVar(value="5")
@@ -180,7 +197,7 @@ class EcommerceScraper:
         
         # Action buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=3, column=0, columnspan=4, pady=15)
+        button_frame.grid(row=5, column=0, columnspan=4, pady=15)
         
         self.start_btn = ttk.Button(button_frame, text="Start Scraping", command=self.start_scraping, style='Accent.TButton')
         self.start_btn.grid(row=0, column=0, padx=10)
@@ -195,7 +212,7 @@ class EcommerceScraper:
 
         # Header selection (for sanitization)
         self.header_frame = ttk.LabelFrame(main_frame, text="Select Fields to Keep", padding="10")
-        self.header_frame.grid(row=4, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.header_frame.grid(row=6, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 10))
         self.header_vars = {}
         self.header_checkbuttons = {}
         self.header_rename_vars = {}
@@ -203,13 +220,13 @@ class EcommerceScraper:
 
         # Data preview grid
         self.preview_frame = ttk.LabelFrame(main_frame, text="Data Preview (Random 20 Products)", padding="10")
-        self.preview_frame.grid(row=5, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.preview_frame.grid(row=7, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 10))
         self.preview_tree = None
         self.preview_frame.grid_remove()  # Hide initially
         
         # Feedback/status area
         status_frame = ttk.Frame(main_frame)
-        status_frame.grid(row=4, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
+        status_frame.grid(row=6, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
         self.status_var = tk.StringVar(value="Ready.")
         self.status_label = ttk.Label(status_frame, textvariable=self.status_var, font=('Arial', 10), foreground='#2980b9')
         self.status_label.pack(anchor=tk.W, fill=tk.X)
@@ -431,6 +448,155 @@ class EcommerceScraper:
             messagebox.showinfo("Success", "API analysis stored. You can now start scraping with the 'API Detection' method.")
         else:
             messagebox.showwarning("Warning", "No product arrays found in the analysis.")
+            
+    def _get_random_user_agent(self):
+        """Get a random user agent to avoid detection"""
+        user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.0.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
+        ]
+        return random.choice(user_agents)
+        
+    def _get_enhanced_headers(self, base_url, api_endpoint):
+        """Get enhanced headers to bypass 403 errors"""
+        headers = {
+            'User-Agent': self._get_random_user_agent() if self.rotate_ua_var.get() else 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*, text/html, application/xhtml+xml, application/xml;q=0.9, image/webp, image/apng, */*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,es;q=0.8,fr;q=0.7,de;q=0.6',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0'
+        }
+        
+        # Add referer and origin if we have a base URL
+        if base_url:
+            parsed_base = urlparse(base_url)
+            headers['Referer'] = base_url
+            headers['Origin'] = f"{parsed_base.scheme}://{parsed_base.netloc}"
+            
+        # Add specific headers for common e-commerce sites
+        if 'nike' in api_endpoint.lower():
+            headers.update({
+                'x-nike-visitor-id': 'visid_' + ''.join(random.choices('0123456789abcdef', k=32)),
+                'x-requested-with': 'XMLHttpRequest'
+            })
+        elif 'amazon' in api_endpoint.lower():
+            headers.update({
+                'x-amz-cf-id': ''.join(random.choices('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', k=64)),
+                'x-amz-cf-pop': 'IAD89-P1'
+            })
+        elif 'walmart' in api_endpoint.lower():
+            headers.update({
+                'wm_sec': '1',
+                'wm_qos': '3'
+            })
+            
+        return headers
+        
+    def _make_anti_detection_request(self, url, base_url, max_retries=3):
+        """Make an API request with anti-detection measures"""
+        session = requests.Session()
+        
+        # Add random delay if enabled
+        if self.delay_requests_var.get():
+            time.sleep(random.uniform(1, 3))
+            
+        for attempt in range(max_retries):
+            try:
+                headers = self._get_enhanced_headers(base_url, url)
+                
+                # Try different request methods
+                if attempt == 0:
+                    response = session.get(url, headers=headers, timeout=15)
+                elif attempt == 1:
+                    # Try with different accept header
+                    headers['Accept'] = 'application/json, text/javascript, */*; q=0.01'
+                    response = session.get(url, headers=headers, timeout=15)
+                else:
+                    # Try POST request for some APIs
+                    response = session.post(url, headers=headers, timeout=15)
+                
+                if response.status_code == 200:
+                    return response
+                elif response.status_code == 403:
+                    self.set_status(f"403 error on attempt {attempt + 1}, trying different approach...")
+                    # Wait longer before retry
+                    time.sleep(random.uniform(2, 5))
+                else:
+                    self.set_status(f"HTTP {response.status_code} on attempt {attempt + 1}")
+                    
+            except Exception as e:
+                self.set_status(f"Request error on attempt {attempt + 1}: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(random.uniform(1, 3))
+                    
+        return None
+        
+    def _try_selenium_api_request(self, api_endpoint, base_url):
+        """Try to get API response using Selenium to bypass 403"""
+        try:
+            options = Options()
+            if self.headless_var.get():
+                options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option('useAutomationExtension', False)
+            
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+            
+            try:
+                # Execute script to remove webdriver property
+                driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                
+                # Navigate to base URL first to set cookies
+                if base_url:
+                    driver.get(base_url)
+                    time.sleep(3)
+                
+                # Now try to get the API response
+                driver.get(api_endpoint)
+                time.sleep(5)
+                
+                # Try to get the response from network logs
+                logs = driver.get_log('performance')
+                for entry in logs:
+                    try:
+                        message = json.loads(entry['message'])
+                        if 'message' in message and message['message']['method'] == 'Network.responseReceived':
+                            request_url = message['message']['params']['response']['url']
+                            if api_endpoint in request_url:
+                                # Try to get response body
+                                response_body = driver.execute_script("""
+                                    return window.performance.getEntries().find(entry => 
+                                        entry.name.includes(arguments[0])
+                                    );
+                                """, api_endpoint)
+                                if response_body:
+                                    return response_body
+                    except:
+                        continue
+                        
+            finally:
+                driver.quit()
+                
+        except Exception as e:
+            self.set_status(f"Selenium API request failed: {e}")
+            
+        return None
 
     def update_header_selection(self):
         # Called after scraping to update header checkboxes
@@ -546,9 +712,12 @@ class EcommerceScraper:
         exclude_keywords = [k.strip().lower() for k in self.exclude_keywords_var.get().split(',') if k.strip()]
         infinite_scroll = self.infinite_scroll_var.get()
         headless = self.headless_var.get()
-        threading.Thread(target=self._scrape_thread, args=(url, api_endpoint, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless), daemon=True).start()
+        rotate_ua = self.rotate_ua_var.get()
+        use_proxy = self.use_proxy_var.get()
+        delay_requests = self.delay_requests_var.get()
+        threading.Thread(target=self._scrape_thread, args=(url, api_endpoint, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless, rotate_ua, use_proxy, delay_requests), daemon=True).start()
 
-    def _scrape_thread(self, url, api_endpoint, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless):
+    def _scrape_thread(self, url, api_endpoint, method, max_pages, delay, container_selector, container_selector_type, exclude_keywords, infinite_scroll, headless, rotate_ua, use_proxy, delay_requests):
         try:
             if method == "requests":
                 self._scrape_with_requests(url, max_pages, delay, container_selector, container_selector_type, exclude_keywords)
@@ -772,71 +941,608 @@ class EcommerceScraper:
         self.set_status(f"API scraping finished. Total products: {len(products)}")
         
     def _extract_from_direct_api(self, api_endpoint, base_url):
-        """Extract products from a direct API endpoint"""
+        """Extract products from a direct API endpoint with anti-detection and pagination"""
         products = []
+        max_pages = int(self.max_pages_var.get() or 1)
+        
+        # Detect if this is a Criteo advertising API
+        if self._detect_bestbuy_criteo_api(api_endpoint):
+            self.set_status("⚠️ Using Criteo advertising API - limited to 12 products per page")
+        
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': base_url if base_url else api_endpoint,
-            }
+            # Try to get the first page to understand pagination
+            response = self._make_anti_detection_request(api_endpoint, base_url)
             
-            response = requests.get(api_endpoint, headers=headers, timeout=15)
-            if response.status_code == 200:
+            if response and response.status_code == 200:
                 api_data = response.json()
-                products = self._extract_from_api_response(api_data)
-            else:
-                self.set_status(f"Direct API request failed with status {response.status_code}")
                 
+                # Check if this is a single page or has pagination
+                pagination_info = self._detect_pagination(api_data, api_endpoint)
+                
+                if pagination_info:
+                    # Handle paginated API
+                    products = self._extract_paginated_api(api_endpoint, base_url, pagination_info, max_pages)
+                else:
+                    # Single page API - but try pagination anyway if max_pages > 1
+                    first_page_products = self._extract_from_api_response(api_data)
+                    products.extend(first_page_products)
+                    
+                    if max_pages > 1 and len(first_page_products) >= 12:  # Lowered threshold for advertising APIs
+                        self.set_status("No pagination detected but trying page-based pagination anyway...")
+                        # Try simple page-based pagination
+                        simple_pagination = {'page_key': 'page'}
+                        additional_products = self._extract_paginated_api(api_endpoint, base_url, simple_pagination, max_pages - 1)
+                        products.extend(additional_products)
+                    else:
+                        self.set_status(f"Single page API. Found {len(first_page_products)} products.")
+            else:
+                # If anti-detection failed, try Selenium approach
+                self.set_status("Anti-detection request failed, trying Selenium approach...")
+                selenium_response = self._try_selenium_api_request(api_endpoint, base_url)
+                
+                if selenium_response:
+                    try:
+                        api_data = json.loads(selenium_response)
+                        pagination_info = self._detect_pagination(api_data, api_endpoint)
+                        
+                        if pagination_info:
+                            products = self._extract_paginated_api_selenium(api_endpoint, base_url, pagination_info, max_pages)
+                        else:
+                            # Try simple pagination with Selenium too
+                            first_page_products = self._extract_from_api_response(api_data)
+                            products.extend(first_page_products)
+                            
+                            if max_pages > 1 and len(first_page_products) >= 12:  # Lowered threshold
+                                self.set_status("No pagination detected but trying page-based pagination with Selenium...")
+                                simple_pagination = {'page_key': 'page'}
+                                additional_products = self._extract_paginated_api_selenium(api_endpoint, base_url, simple_pagination, max_pages - 1)
+                                products.extend(additional_products)
+                    except:
+                        self.set_status("Selenium response is not valid JSON")
+                else:
+                    self.set_status("All API request methods failed")
+                    
         except Exception as e:
             self.set_status(f"Direct API extraction error: {e}")
             
         return products
         
-    def _extract_from_analyzed_api(self, api_endpoint, base_url):
-        """Extract products using the analyzed API structure"""
-        products = []
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': base_url if base_url else api_endpoint,
+    def _detect_pagination(self, api_data, api_endpoint):
+        """Detect pagination patterns in API response"""
+        pagination_info = {}
+        
+        # Special handling for Best Buy and Criteo APIs
+        if 'bestbuy' in api_endpoint.lower() or 'criteo' in api_endpoint.lower():
+            self.set_status("Detected Best Buy/Criteo API - applying special pagination rules")
+            
+            # Check if this is a Criteo advertising API (limited to 12 products)
+            if 'criteo' in api_endpoint.lower() and 'retailmedia' in api_endpoint.lower():
+                pagination_info.update({
+                    'page_key': 'page-number',
+                    'limit_key': 'block',
+                    'is_criteo_api': True,
+                    'max_products_per_page': 12
+                })
+                return pagination_info
+                
+            # Check for Best Buy's actual product API patterns
+            if 'bestbuy' in api_endpoint.lower():
+                pagination_info.update({
+                    'page_key': 'page',
+                    'limit_key': 'pageSize',
+                    'is_bestbuy_api': True
+                })
+                
+        # Check URL for existing pagination parameters
+        if '?' in api_endpoint:
+            url_params = api_endpoint.split('?')[1]
+            if 'page=' in url_params or 'page-number=' in url_params:
+                pagination_info['page_key'] = 'page' if 'page=' in url_params else 'page-number'
+            elif 'offset=' in url_params:
+                pagination_info['offset_key'] = 'offset'
+            elif 'cursor=' in url_params:
+                pagination_info['cursor_key'] = 'cursor'
+            elif 'anchor=' in url_params:
+                pagination_info['anchor_key'] = 'anchor'
+        
+        # Check response data for pagination indicators
+        if isinstance(api_data, dict):
+            # Look for common pagination fields in the response
+            pagination_fields = {
+                'page': ['page', 'currentPage', 'pageNumber'],
+                'total': ['total', 'totalCount', 'totalItems', 'count'],
+                'limit': ['limit', 'pageSize', 'size', 'per_page'],
+                'has_next': ['hasNext', 'hasMore', 'nextPage', 'has_next_page'],
+                'next_cursor': ['nextCursor', 'next_cursor', 'cursor'],
+                'next_page': ['nextPage', 'next_page']
             }
             
-            response = requests.get(api_endpoint, headers=headers, timeout=15)
-            if response.status_code == 200:
+            for pagination_type, field_names in pagination_fields.items():
+                for field_name in field_names:
+                    if field_name in api_data:
+                        pagination_info[f'{pagination_type}_key'] = field_name
+                        break
+                        
+            # Check for array-based pagination (common in e-commerce APIs)
+            if 'products' in api_data and isinstance(api_data['products'], list):
+                products_count = len(api_data['products'])
+                # If we have a reasonable number of products, assume pagination is possible
+                if products_count >= 12:  # Lowered threshold for advertising APIs
+                    if 'page_key' not in pagination_info and 'offset_key' not in pagination_info:
+                        pagination_info['page_key'] = 'page'  # Default to page-based
+                        
+            # Check for other common product array keys
+            product_array_keys = ['items', 'results', 'data', 'catalog', 'objects']
+            for key in product_array_keys:
+                if key in api_data and isinstance(api_data[key], list):
+                    products_count = len(api_data[key])
+                    if products_count >= 12:  # Lowered threshold
+                        if 'page_key' not in pagination_info and 'offset_key' not in pagination_info:
+                            pagination_info['page_key'] = 'page'  # Default to page-based
+                        break
+                        
+        # If we found any pagination indicators, return the info
+        if pagination_info:
+            self.set_status(f"Detected pagination: {pagination_info}")
+            return pagination_info
+            
+        return None
+        
+    def _extract_paginated_api(self, api_endpoint, base_url, pagination_info, max_pages):
+        """Extract products from a paginated API"""
+        products = []
+        page = 1
+        offset = 0
+        cursor = None
+        anchor = None
+        
+        self.set_status(f"Starting paginated API extraction. Max pages: {max_pages}")
+        self.set_status(f"Pagination info: {pagination_info}")
+        
+        while page <= max_pages and self.is_scraping:
+            try:
+                # Build paginated URL
+                paginated_url = self._build_paginated_url(api_endpoint, page, offset, cursor, anchor, pagination_info)
+                
+                self.set_status(f"Fetching page {page} from API: {paginated_url}")
+                
+                # Make request with anti-detection
+                response = self._make_anti_detection_request(paginated_url, base_url)
+                
+                if response and response.status_code == 200:
+                    api_data = response.json()
+                    page_products = self._extract_from_api_response(api_data)
+                    
+                    if page_products:
+                        products.extend(page_products)
+                        self.set_status(f"Page {page}: Found {len(page_products)} products. Total: {len(products)}")
+                        
+                        # Check if there are more pages
+                        has_more = self._has_more_pages(api_data, pagination_info)
+                        self.set_status(f"Page {page}: Has more pages: {has_more}")
+                        
+                        if not has_more:
+                            self.set_status(f"Page {page}: No more pages available, stopping pagination")
+                            break
+                            
+                        # Update pagination parameters for next page
+                        page, offset, cursor, anchor = self._get_next_page_params(api_data, pagination_info, page, offset, cursor, anchor)
+                        self.set_status(f"Next page params: page={page}, offset={offset}, cursor={cursor}, anchor={anchor}")
+                    else:
+                        self.set_status(f"Page {page}: No products found, stopping pagination")
+                        break
+                else:
+                    self.set_status(f"Page {page}: Request failed with status {response.status_code if response else 'No response'}, stopping pagination")
+                    break
+                    
+                # Add delay between pages
+                if self.delay_requests_var.get():
+                    time.sleep(random.uniform(1, 3))
+                    
+            except Exception as e:
+                self.set_status(f"Error on page {page}: {e}")
+                break
+                
+        self.set_status(f"Pagination completed. Total products extracted: {len(products)}")
+        return products
+        
+    def _build_paginated_url(self, api_endpoint, page, offset, cursor, anchor, pagination_info):
+        """Build URL with pagination parameters"""
+        # Parse the base URL and existing parameters
+        if '?' in api_endpoint:
+            base_url, existing_params = api_endpoint.split('?', 1)
+        else:
+            base_url = api_endpoint
+            existing_params = ""
+            
+        # Parse existing parameters
+        params = {}
+        if existing_params:
+            for param in existing_params.split('&'):
+                if '=' in param:
+                    key, value = param.split('=', 1)
+                    params[key] = value
+                    
+        # Special handling for Criteo API
+        if pagination_info.get('is_criteo_api'):
+            # Keep all existing Criteo parameters but update page-number
+            if page > 1:
+                params['page-number'] = str(page)
+            # Update block parameter for different product sets
+            if 'block' in params:
+                try:
+                    current_block = int(params['block'])
+                    params['block'] = str(current_block + (page - 1) * 12)  # Increment block for each page
+                except ValueError:
+                    params['block'] = str((page - 1) * 12)
+            return f"{base_url}?{'&'.join([f'{k}={v}' for k, v in params.items()])}"
+            
+        # Special handling for Best Buy API
+        if pagination_info.get('is_bestbuy_api'):
+            # Remove existing pagination parameters
+            pagination_keys = ['page', 'pageSize', 'offset', 'cursor', 'anchor']
+            for key in pagination_keys:
+                if key in params:
+                    del params[key]
+                    
+            # Add Best Buy specific pagination
+            if page > 1:
+                params['page'] = str(page)
+            if 'pageSize' not in params:
+                params['pageSize'] = '50'  # Best Buy typically uses 50 products per page
+                
+        else:
+            # Standard pagination handling
+            # Remove existing pagination parameters
+            pagination_keys = ['page', 'page-number', 'offset', 'cursor', 'anchor', 'limit', 'size', 'per_page']
+            for key in pagination_keys:
+                if key in params:
+                    del params[key]
+                    
+            # Add new pagination parameters based on detected type
+            if pagination_info.get('page_key') and page > 1:
+                params[pagination_info['page_key']] = str(page)
+            elif pagination_info.get('offset_key') and offset > 0:
+                params[pagination_info['offset_key']] = str(offset)
+            elif pagination_info.get('cursor_key') and cursor:
+                params[pagination_info['cursor_key']] = str(cursor)
+            elif pagination_info.get('anchor_key') and anchor:
+                params[pagination_info['anchor_key']] = str(anchor)
+            elif page > 1:
+                # Default to page-based if no specific type detected
+                params['page'] = str(page)
+                
+            # Add limit if not present
+            if 'limit' not in params and 'size' not in params and 'per_page' not in params:
+                params['limit'] = '50'  # Default page size
+                
+        # Build the final URL
+        if params:
+            param_strings = [f"{key}={value}" for key, value in params.items()]
+            return f"{base_url}?{'&'.join(param_strings)}"
+        else:
+            return base_url
+            
+    def _has_more_pages(self, api_data, pagination_info):
+        """Check if there are more pages available"""
+        if isinstance(api_data, dict):
+            # Special handling for Criteo API
+            if pagination_info.get('is_criteo_api'):
+                # Criteo API typically returns 12 products per page
+                # If we get exactly 12 products, there might be more pages
+                products = self._extract_from_api_response(api_data)
+                if len(products) == 12:
+                    return True
+                return False
+                
+            # Special handling for Best Buy API
+            if pagination_info.get('is_bestbuy_api'):
+                # Check for Best Buy specific pagination indicators
+                if 'totalCount' in api_data and 'currentPage' in api_data:
+                    try:
+                        total = int(api_data['totalCount'])
+                        current_page = int(api_data['currentPage'])
+                        page_size = int(api_data.get('pageSize', 50))
+                        if current_page * page_size < total:
+                            return True
+                    except (ValueError, TypeError):
+                        pass
+                        
+            # Check various pagination indicators
+            if pagination_info.get('has_next_key') and pagination_info['has_next_key'] in api_data:
+                return bool(api_data[pagination_info['has_next_key']])
+            elif pagination_info.get('has_more_key') and pagination_info['has_more_key'] in api_data:
+                return bool(api_data[pagination_info['has_more_key']])
+            elif pagination_info.get('next_cursor_key') and pagination_info['next_cursor_key'] in api_data:
+                return bool(api_data[pagination_info['next_cursor_key']])
+            elif pagination_info.get('next_page_key') and pagination_info['next_page_key'] in api_data:
+                return bool(api_data[pagination_info['next_page_key']])
+                
+            # Check if we have products and they seem to be a full page
+            products = self._extract_from_api_response(api_data)
+            if len(products) >= 12:  # Lowered threshold for advertising APIs
+                return True
+                
+            # Check for total count vs current count
+            if pagination_info.get('total_key') and pagination_info['total_key'] in api_data:
+                total = api_data[pagination_info['total_key']]
+                current_count = len(products)
+                if isinstance(total, (int, str)) and current_count > 0:
+                    try:
+                        total = int(total)
+                        if current_count < total:
+                            return True
+                    except ValueError:
+                        pass
+                        
+        return False
+        
+    def _get_next_page_params(self, api_data, pagination_info, current_page, current_offset, current_cursor, current_anchor):
+        """Get parameters for the next page"""
+        next_page = current_page + 1
+        next_offset = current_offset + 50  # Default page size
+        next_cursor = None
+        next_anchor = None
+        
+        if isinstance(api_data, dict):
+            # Get next cursor if available
+            if pagination_info.get('next_cursor_key') and pagination_info['next_cursor_key'] in api_data:
+                next_cursor = api_data[pagination_info['next_cursor_key']]
+                
+            # Get next page number if available
+            if pagination_info.get('next_page_key') and pagination_info['next_page_key'] in api_data:
+                next_page = api_data[pagination_info['next_page_key']]
+                
+            # Calculate offset based on limit
+            if pagination_info.get('limit_key') and pagination_info['limit_key'] in api_data:
+                try:
+                    limit = int(api_data[pagination_info['limit_key']])
+                    next_offset = current_offset + limit
+                except (ValueError, TypeError):
+                    next_offset = current_offset + 50
+            elif 'limit' in api_data:
+                try:
+                    limit = int(api_data['limit'])
+                    next_offset = current_offset + limit
+                except (ValueError, TypeError):
+                    next_offset = current_offset + 50
+                    
+            # Handle Nike-style anchor pagination
+            if pagination_info.get('anchor_key') and pagination_info['anchor_key'] in api_data:
+                try:
+                    current_anchor_val = int(api_data[pagination_info['anchor_key']])
+                    next_anchor = current_anchor_val + 50  # Default increment
+                except (ValueError, TypeError):
+                    next_anchor = current_anchor + 50 if current_anchor else 50
+                    
+        return next_page, next_offset, next_cursor, next_anchor
+        
+    def _extract_paginated_api_selenium(self, api_endpoint, base_url, pagination_info, max_pages):
+        """Extract products from paginated API using Selenium"""
+        products = []
+        page = 1
+        offset = 0
+        cursor = None
+        anchor = None
+        
+        while page <= max_pages and self.is_scraping:
+            try:
+                # Build paginated URL
+                paginated_url = self._build_paginated_url(api_endpoint, page, offset, cursor, anchor, pagination_info)
+                
+                self.set_status(f"Fetching page {page} from API using Selenium...")
+                
+                # Use Selenium to get the response
+                selenium_response = self._try_selenium_api_request(paginated_url, base_url)
+                
+                if selenium_response:
+                    try:
+                        api_data = json.loads(selenium_response)
+                        page_products = self._extract_from_api_response(api_data)
+                        
+                        if page_products:
+                            products.extend(page_products)
+                            self.set_status(f"Page {page}: Found {len(page_products)} products. Total: {len(products)}")
+                            
+                            # Check if there are more pages
+                            if not self._has_more_pages(api_data, pagination_info):
+                                break
+                                
+                            # Update pagination parameters for next page
+                            page, offset, cursor, anchor = self._get_next_page_params(api_data, pagination_info, page, offset, cursor, anchor)
+                        else:
+                            self.set_status(f"Page {page}: No products found, stopping pagination")
+                            break
+                    except:
+                        self.set_status(f"Page {page}: Invalid JSON response")
+                        break
+                else:
+                    self.set_status(f"Page {page}: Selenium request failed, stopping pagination")
+                    break
+                    
+                # Add delay between pages
+                if self.delay_requests_var.get():
+                    time.sleep(random.uniform(2, 4))  # Longer delay for Selenium
+                    
+            except Exception as e:
+                self.set_status(f"Error on page {page}: {e}")
+                break
+                
+        return products
+
+    def _extract_from_analyzed_api(self, api_endpoint, base_url):
+        """Extract products using the analyzed API structure with anti-detection and pagination"""
+        products = []
+        max_pages = int(self.max_pages_var.get() or 1)
+        
+        try:
+            # Try anti-detection request first
+            response = self._make_anti_detection_request(api_endpoint, base_url)
+            
+            if response and response.status_code == 200:
                 api_data = response.json()
                 
-                # Use the analyzed structure to extract products
-                for product_array in self.api_analysis['product_arrays']:
-                    # Navigate to the product array using the path
-                    path_parts = product_array['path'].split('.')
-                    current_data = api_data
-                    
-                    for part in path_parts:
-                        if isinstance(current_data, dict) and part in current_data:
-                            current_data = current_data[part]
-                        else:
-                            break
-                    
-                    if isinstance(current_data, list):
-                        mappings = self.api_analysis['field_mappings'].get(product_array['path'], {})
-                        
-                        for item in current_data:
-                            product = self._map_api_product_with_mappings(item, mappings)
-                            if product:
-                                products.append(product)
-                                
-            else:
-                self.set_status(f"Analyzed API request failed with status {response.status_code}")
+                # Check for pagination
+                pagination_info = self._detect_pagination(api_data, api_endpoint)
                 
+                if pagination_info:
+                    # Handle paginated API with analyzed structure
+                    products = self._extract_paginated_analyzed_api(api_endpoint, base_url, pagination_info, max_pages)
+                else:
+                    # Single page API with analyzed structure
+                    products = self._extract_analyzed_single_page(api_data)
+            else:
+                # If anti-detection failed, try Selenium approach
+                self.set_status("Anti-detection request failed, trying Selenium approach...")
+                selenium_response = self._try_selenium_api_request(api_endpoint, base_url)
+                
+                if selenium_response:
+                    try:
+                        api_data = json.loads(selenium_response)
+                        pagination_info = self._detect_pagination(api_data, api_endpoint)
+                        
+                        if pagination_info:
+                            products = self._extract_paginated_analyzed_api_selenium(api_endpoint, base_url, pagination_info, max_pages)
+                        else:
+                            products = self._extract_analyzed_single_page(api_data)
+                    except:
+                        self.set_status("Selenium response is not valid JSON")
+                else:
+                    self.set_status("All API request methods failed")
+                    
         except Exception as e:
             self.set_status(f"Analyzed API extraction error: {e}")
             
         return products
         
+    def _extract_analyzed_single_page(self, api_data):
+        """Extract products from a single page using analyzed structure"""
+        products = []
+        
+        # Use the analyzed structure to extract products
+        for product_array in self.api_analysis['product_arrays']:
+            # Navigate to the product array using the path
+            path_parts = product_array['path'].split('.')
+            current_data = api_data
+            
+            for part in path_parts:
+                if isinstance(current_data, dict) and part in current_data:
+                    current_data = current_data[part]
+                else:
+                    break
+            
+            if isinstance(current_data, list):
+                mappings = self.api_analysis['field_mappings'].get(product_array['path'], {})
+                
+                for item in current_data:
+                    product = self._map_api_product_with_mappings(item, mappings)
+                    if product:
+                        products.append(product)
+                        
+        return products
+        
+    def _extract_paginated_analyzed_api(self, api_endpoint, base_url, pagination_info, max_pages):
+        """Extract products from paginated API using analyzed structure"""
+        products = []
+        page = 1
+        offset = 0
+        cursor = None
+        anchor = None
+        
+        while page <= max_pages and self.is_scraping:
+            try:
+                # Build paginated URL
+                paginated_url = self._build_paginated_url(api_endpoint, page, offset, cursor, anchor, pagination_info)
+                
+                self.set_status(f"Fetching page {page} from analyzed API...")
+                
+                # Make request with anti-detection
+                response = self._make_anti_detection_request(paginated_url, base_url)
+                
+                if response and response.status_code == 200:
+                    api_data = response.json()
+                    page_products = self._extract_analyzed_single_page(api_data)
+                    
+                    if page_products:
+                        products.extend(page_products)
+                        self.set_status(f"Page {page}: Found {len(page_products)} products. Total: {len(products)}")
+                        
+                        # Check if there are more pages
+                        if not self._has_more_pages(api_data, pagination_info):
+                            break
+                            
+                        # Update pagination parameters for next page
+                        page, offset, cursor, anchor = self._get_next_page_params(api_data, pagination_info, page, offset, cursor, anchor)
+                    else:
+                        self.set_status(f"Page {page}: No products found, stopping pagination")
+                        break
+                else:
+                    self.set_status(f"Page {page}: Request failed, stopping pagination")
+                    break
+                    
+                # Add delay between pages
+                if self.delay_requests_var.get():
+                    time.sleep(random.uniform(1, 3))
+                    
+            except Exception as e:
+                self.set_status(f"Error on page {page}: {e}")
+                break
+                
+        return products
+        
+    def _extract_paginated_analyzed_api_selenium(self, api_endpoint, base_url, pagination_info, max_pages):
+        """Extract products from paginated API using analyzed structure and Selenium"""
+        products = []
+        page = 1
+        offset = 0
+        cursor = None
+        anchor = None
+        
+        while page <= max_pages and self.is_scraping:
+            try:
+                # Build paginated URL
+                paginated_url = self._build_paginated_url(api_endpoint, page, offset, cursor, anchor, pagination_info)
+                
+                self.set_status(f"Fetching page {page} from analyzed API using Selenium...")
+                
+                # Use Selenium to get the response
+                selenium_response = self._try_selenium_api_request(paginated_url, base_url)
+                
+                if selenium_response:
+                    try:
+                        api_data = json.loads(selenium_response)
+                        page_products = self._extract_analyzed_single_page(api_data)
+                        
+                        if page_products:
+                            products.extend(page_products)
+                            self.set_status(f"Page {page}: Found {len(page_products)} products. Total: {len(products)}")
+                            
+                            # Check if there are more pages
+                            if not self._has_more_pages(api_data, pagination_info):
+                                break
+                                
+                            # Update pagination parameters for next page
+                            page, offset, cursor, anchor = self._get_next_page_params(api_data, pagination_info, page, offset, cursor, anchor)
+                        else:
+                            self.set_status(f"Page {page}: No products found, stopping pagination")
+                            break
+                    except:
+                        self.set_status(f"Page {page}: Invalid JSON response")
+                        break
+                else:
+                    self.set_status(f"Page {page}: Selenium request failed, stopping pagination")
+                    break
+                    
+                # Add delay between pages
+                if self.delay_requests_var.get():
+                    time.sleep(random.uniform(2, 4))  # Longer delay for Selenium
+                    
+            except Exception as e:
+                self.set_status(f"Error on page {page}: {e}")
+                break
+                
+        return products
+
     def _map_api_product_with_mappings(self, api_item, mappings):
         """Map API product fields using the analyzed mappings"""
         product = {}
@@ -1057,33 +1763,44 @@ class EcommerceScraper:
             page_url = url
             if page > 1:
                 page_url = f"{url}?page={page}"
-            resp = session.get(page_url, timeout=15)
-            soup = BeautifulSoup(resp.text, "lxml")
-            # Use user-supplied selector for product blocks
-            product_blocks = []
-            if container_selector_type != "none" and container_selector:
-                try:
-                    if container_selector_type == "class":
-                        container = soup.find(class_=container_selector)
-                    elif container_selector_type == "id":
-                        container = soup.find(id=container_selector)
-                    else:
-                        container = None
-                    if container:
-                        product_blocks = container.find_all(['div', 'li', 'article'], recursive=True)
-                except Exception as e:
-                    self.set_status(f"Selector error: {e}")
-            if not product_blocks:
-                # fallback: all div/li/article with a link and image
-                product_blocks = soup.find_all(lambda tag: tag.name in ['div', 'li', 'article'] and tag.find('a', href=True) and (tag.find('img') or tag.find(attrs={"class": lambda v: v and 'product' in v})))
-            found = 0
-            for block in product_blocks:
-                pdata = self._extract_product_fields(block, url)
-                if pdata:
-                    products.append(pdata)
-                    found += 1
-            self.set_status(f"Page {page}: Found {found} products.")
-            time.sleep(delay)
+            
+            # Rotate User Agent
+            session.headers['User-Agent'] = self._get_random_user_agent()
+            
+            # Add random delays
+            time.sleep(random.uniform(0.5, 1.5)) # Random delay between 0.5 and 1.5 seconds
+            
+            try:
+                resp = session.get(page_url, timeout=15)
+                soup = BeautifulSoup(resp.text, "lxml")
+                # Use user-supplied selector for product blocks
+                product_blocks = []
+                if container_selector_type != "none" and container_selector:
+                    try:
+                        if container_selector_type == "class":
+                            container = soup.find(class_=container_selector)
+                        elif container_selector_type == "id":
+                            container = soup.find(id=container_selector)
+                        else:
+                            container = None
+                        if container:
+                            product_blocks = container.find_all(['div', 'li', 'article'], recursive=True)
+                    except Exception as e:
+                        self.set_status(f"Selector error: {e}")
+                if not product_blocks:
+                    # fallback: all div/li/article with a link and image
+                    product_blocks = soup.find_all(lambda tag: tag.name in ['div', 'li', 'article'] and tag.find('a', href=True) and (tag.find('img') or tag.find(attrs={"class": lambda v: v and 'product' in v})))
+                found = 0
+                for block in product_blocks:
+                    pdata = self._extract_product_fields(block, url)
+                    if pdata:
+                        products.append(pdata)
+                        found += 1
+                self.set_status(f"Page {page}: Found {found} products.")
+                time.sleep(delay)
+            except requests.exceptions.RequestException as e:
+                self.set_status(f"Request failed for page {page}: {e}")
+                continue
         # Sanitize products
         products = self._sanitize_products(products, exclude_keywords)
         self.products = products
@@ -1252,6 +1969,61 @@ class EcommerceScraper:
         except Exception as e:
             self.set_status(f"Error displaying product: {e}")
 
+    def _show_bestbuy_api_help(self):
+        """Show help for finding the correct Best Buy API endpoint"""
+        help_text = """
+BEST BUY API HELP:
+
+The URL you provided is a Criteo advertising API that only returns 12 sponsored products.
+To get the full Best Buy product catalog, you need to find the actual Best Buy API.
+
+HOW TO FIND THE REAL BEST BUY API:
+
+1. Open Best Buy website: https://www.bestbuy.ca
+2. Navigate to the category you want to scrape
+3. Open Developer Tools (F12)
+4. Go to Network tab
+5. Filter by "Fetch/XHR" or "API"
+6. Look for requests containing:
+   - "api.bestbuy.ca"
+   - "search" or "products"
+   - "category" or "catalog"
+
+COMMON BEST BUY API PATTERNS:
+- https://api.bestbuy.ca/v2/products?categoryPath.id=20001&page=1&pageSize=50
+- https://api.bestbuy.ca/v2/products?search=computer&page=1&pageSize=50
+- https://api.bestbuy.ca/v2/products?categoryPath.id=20001&sortBy=relevance&page=1
+
+CRITEO API LIMITATIONS:
+- Only returns 12 sponsored/advertising products
+- Not the full product catalog
+- Designed for advertising display, not scraping
+- Limited pagination support
+
+Try finding the actual Best Buy API endpoint for better results!
+        """
+        
+        popup = tk.Toplevel(self.root)
+        popup.title("Best Buy API Help")
+        popup.geometry("600x500")
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        text_widget = tk.Text(popup, wrap=tk.WORD, padx=10, pady=10)
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        text_widget.insert(tk.END, help_text)
+        text_widget.config(state=tk.DISABLED)
+        
+        ttk.Button(popup, text="Close", command=popup.destroy).pack(pady=10)
+        
+    def _detect_bestbuy_criteo_api(self, api_endpoint):
+        """Detect if the API is a Criteo advertising API and show help"""
+        if 'criteo' in api_endpoint.lower() and 'retailmedia' in api_endpoint.lower():
+            self.set_status("⚠️ Detected Criteo advertising API - limited to 12 products")
+            self.root.after(2000, self._show_bestbuy_api_help)  # Show help after 2 seconds
+            return True
+        return False
+
 def show_documentation_popup(root, on_close):
     doc_win = tk.Toplevel(root)
     doc_win.title("How to Use: E-commerce Web Scraper")
@@ -1301,11 +2073,21 @@ API ENDPOINT FEATURE:
 - Use 'Analyze API Structure' to automatically detect product arrays and field mappings.
 - The analyzer will show you the JSON structure and suggest field mappings.
 - This is especially useful for sites with complex API responses.
+- **PAGINATION SUPPORT**: The scraper automatically detects and handles pagination in APIs.
+  - Supports page-based, offset-based, and cursor-based pagination.
+  - Respects the 'Max Pages' setting to control how many pages to fetch.
+  - Shows progress for each page being fetched.
 
 HEADLESS SELENIUM:
 - Enable this option to run Selenium in headless mode (no browser window).
 - Helps avoid bot detection and uses less system resources.
 - Recommended for production scraping.
+
+ANTI-DETECTION FEATURES:
+- **Rotate User Agents**: Uses different browser user agents to avoid detection.
+- **Add Random Delays**: Adds random delays between requests to mimic human behavior.
+- **Enhanced Headers**: Uses complete browser headers including site-specific ones.
+- **Multiple Fallback Methods**: Tries different approaches if one fails (GET, POST, Selenium).
 
 CONTAINER SELECTION:
 - To get the product list container's class or id:
