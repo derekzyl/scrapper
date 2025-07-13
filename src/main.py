@@ -2056,16 +2056,20 @@ def show_documentation_popup(root, on_close):
    - 'Requests' (faster, for simple sites)
    - 'Selenium' (for dynamic sites)
    - 'API Detection' (automatically finds and uses API endpoints)
-5. Enable 'Headless Selenium' to avoid bot detection (recommended).
-6. Set 'Max Pages' and 'Delay' (in seconds) between page loads.
-7. (Optional) Add keywords to exclude ads or non-product items.
-8. (Optional) Enable 'Infinite Scroll' for sites that load more products as you scroll (Selenium only).
-9. Click 'Start Scraping'.
-10. After scraping, select which fields to keep and optionally rename them.
-11. Preview the data, then export to CSV or Excel.
+5. Configure anti-detection options:
+   - Enable 'Headless Selenium' to avoid bot detection (recommended)
+   - Enable 'Rotate User Agents' to use different browser signatures
+   - Enable 'Add Random Delays' to mimic human behavior
+6. (Optional) Click 'Analyze API Structure' to understand complex APIs before scraping.
+7. Set 'Max Pages' and 'Delay' (in seconds) between page loads.
+8. (Optional) Add keywords to exclude ads or non-product items.
+9. (Optional) Enable 'Infinite Scroll' for sites that load more products as you scroll (Selenium only).
+10. Click 'Start Scraping'.
+11. After scraping, select which fields to keep and optionally rename them.
+12. Preview the data, then export to CSV or Excel.
 """, justify=tk.LEFT, font=("Arial", 11), bg="#f6f8fa", wraplength=600)
     label_basic_text.pack(anchor=tk.W, pady=(0,10))
-    label_adv = tk.Label(inner_frame, text="ADVANCED USAGE:", font=("Arial", 12, "bold"), fg="#c0392b", bg="#f6f8fa", anchor="w")
+    label_adv = tk.Label(inner_frame, text="ADVANCED USAGE:", font=("Arial", 12, "bold"), fg="#c0392b", bg="#f6f8fa", anchor="tk.W")
     label_adv.pack(anchor=tk.W, pady=(0,2))
     label_adv_text = tk.Label(inner_frame, text="""
 API ENDPOINT FEATURE:
@@ -2077,17 +2081,26 @@ API ENDPOINT FEATURE:
   - Supports page-based, offset-based, and cursor-based pagination.
   - Respects the 'Max Pages' setting to control how many pages to fetch.
   - Shows progress for each page being fetched.
-
-HEADLESS SELENIUM:
-- Enable this option to run Selenium in headless mode (no browser window).
-- Helps avoid bot detection and uses less system resources.
-- Recommended for production scraping.
+  - Special handling for Best Buy, Criteo, and other e-commerce APIs.
 
 ANTI-DETECTION FEATURES:
 - **Rotate User Agents**: Uses different browser user agents to avoid detection.
 - **Add Random Delays**: Adds random delays between requests to mimic human behavior.
 - **Enhanced Headers**: Uses complete browser headers including site-specific ones.
 - **Multiple Fallback Methods**: Tries different approaches if one fails (GET, POST, Selenium).
+- **403 Error Bypass**: Automatically tries multiple strategies to bypass 403 errors.
+
+HEADLESS SELENIUM:
+- Enable this option to run Selenium in headless mode (no browser window).
+- Helps avoid bot detection and uses less system resources.
+- Recommended for production scraping.
+
+BEST BUY & CRITEO API HANDLING:
+- **Automatic Detection**: Recognizes Best Buy and Criteo advertising APIs.
+- **Criteo API Warning**: Shows warnings when using limited advertising APIs (12 products max).
+- **Help System**: Provides guidance for finding the real Best Buy product API.
+- **Special Pagination**: Handles Criteo's unique pagination parameters (page-number, block).
+- **Real API Support**: Optimized for actual Best Buy product APIs with proper pagination.
 
 CONTAINER SELECTION:
 - To get the product list container's class or id:
@@ -2099,7 +2112,15 @@ CONTAINER SELECTION:
 - Avoid using containers with names like 'ad', 'advert', 'promo', 'banner', or those that only contain unrelated content.
 - If you see too many unrelated items, try specifying the product list container.
 - You can scroll the interface horizontally if fields overflow.
-- If you need help, contact your project provider.
+
+TROUBLESHOOTING:
+- **403 Errors**: Enable anti-detection features and try different methods.
+- **Limited Products**: Check if you're using an advertising API instead of a product API.
+- **Pagination Issues**: Use 'Analyze API Structure' to understand the API format.
+- **Slow Scraping**: Reduce 'Max Pages' or increase 'Delay' between requests.
+- **No Products Found**: Try different scraping methods or check the website structure.
+
+If you need help, contact your project provider.
 """, justify=tk.LEFT, font=("Arial", 11), bg="#f6f8fa", wraplength=600)
     label_adv_text.pack(anchor=tk.W, pady=(0,10))
     # Add the checkbox and button inside the scrollable area

@@ -1,188 +1,250 @@
-# E-commerce Web Scraper
+# E-commerce Web Scraper v1.0.0
 
-A comprehensive Python application with GUI for scraping e-commerce websites to extract product information and categories. Built with modern tools and best practices.
+A powerful, feature-rich web scraper for e-commerce websites with advanced API support, anti-detection features, and intelligent pagination handling.
 
 ## 🚀 Features
 
-- **User-friendly GUI** - Built with tkinter for easy interaction
-- **Flexible scraping methods** - Choose between Requests+BeautifulSoup or Selenium
-- **Smart data extraction** - Automatically detects products and categories
-- **Export capabilities** - Save data to CSV or Excel formats
-- **Pagination support** - Automatically scrapes multiple pages
-- **Real-time progress** - Live updates during scraping
-- **Modern packaging** - Uses `uv` for fast dependency management
+### Core Scraping Methods
+- **Requests + BeautifulSoup**: Fast scraping for simple websites
+- **Selenium**: Dynamic content scraping with browser automation
+- **API Detection**: Automatic detection and use of product APIs
+- **Direct API Support**: Use known API endpoints for maximum efficiency
 
-## 📦 Quick Installation & Setup
+### Advanced API Features
+- **API Structure Analysis**: Automatically analyze JSON structure and suggest field mappings
+- **Intelligent Pagination**: Supports page-based, offset-based, and cursor-based pagination
+- **Multi-page Extraction**: Fetch hundreds of products across multiple pages
+- **Special API Handling**: Optimized for Best Buy, Nike, Amazon, and other major retailers
 
-### Option 1: Automated Installation (Recommended)
+### Anti-Detection System
+- **Headless Selenium**: Run without browser window to avoid detection
+- **User Agent Rotation**: Use different browser signatures for each request
+- **Random Delays**: Add realistic delays between requests
+- **Enhanced Headers**: Complete browser headers with site-specific optimizations
+- **Multiple Fallback Methods**: GET, POST, and Selenium approaches
+- **403 Error Bypass**: Automatic strategies to overcome access restrictions
 
+### Data Processing
+- **Smart Field Mapping**: Automatic mapping of API fields to standard format
+- **Data Sanitization**: Remove ads and non-product items
+- **Flexible Export**: CSV and Excel export with custom field selection
+- **Data Preview**: Real-time preview of scraped data
+- **Field Renaming**: Customize column names in exports
+
+### User Interface
+- **Scrollable Interface**: Horizontal and vertical scrolling for all screen sizes
+- **Real-time Status**: Live updates on scraping progress
+- **Interactive Documentation**: Built-in help system with examples
+- **Onboarding**: First-time user guidance with "Don't show again" option
+
+## 📋 Requirements
+
+- Python 3.7+
+- Chrome browser (for Selenium)
+- Internet connection
+
+## 🛠️ Installation
+
+### Option 1: Using uv (Recommended)
 ```bash
-# Download and run the installation script
-python install.py
+# Run the installer script
+./run.sh  # Linux/Mac
+run.bat   # Windows
 ```
 
-This will:
-- Check Python version compatibility
-- Install `uv` package manager if not present
-- Create virtual environment
-- Install all dependencies
-- Create launcher scripts
-
-### Option 2: Manual Installation with uv
-
+### Option 2: Manual Installation
 ```bash
-# Install uv first (if not installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh  # Unix/Linux/macOS
-# or
-pip install uv  # Alternative method
-
-# Clone/download the project files
-# Then run:
-uv sync
-```
-
-### Option 3: Traditional pip installation
-
-```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Install uv package manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies
-pip install -r requirements.txt
+uv pip install -r requirements.txt
+
+# Run the scraper
+uv run python src/main.py
 ```
 
-## 🏃‍♂️ Running the Application
+## 🎯 Quick Start
 
-After installation, you can run the scraper in several ways:
+1. **Launch the Application**
+   ```bash
+   ./run.sh  # or run.bat on Windows
+   ```
 
-```bash
-# Method 1: Using uv (recommended)
-uv run python -m main
+2. **Basic Scraping**
+   - Enter website URL
+   - Choose scraping method
+   - Set Max Pages and Delay
+   - Click "Start Scraping"
 
-# Method 2: Using launcher scripts
-./run.sh        # Linux/macOS
-run.bat         # Windows
+3. **API Scraping (Advanced)**
+   - Enter API endpoint
+   - Click "Analyze API Structure" to understand the data
+   - Use "API Detection" method
+   - Enable anti-detection features
 
-# Method 3: Direct execution
-uv run ecommerce-scraper
+## 🔧 Configuration
 
-# Method 4: Traditional python
-python -m main
-```
+### Anti-Detection Settings
+- **Headless Selenium**: Run without browser window
+- **Rotate User Agents**: Use different browser signatures
+- **Add Random Delays**: Mimic human behavior
+- **Use Proxy**: Add proxy support (if available)
 
-## 🛠️ Usage Guide
+### Scraping Parameters
+- **Max Pages**: Number of pages to scrape (1-100)
+- **Delay**: Seconds between requests (0.5-10)
+- **Exclude Keywords**: Filter out ads (ad, sponsored, promo)
+- **Infinite Scroll**: For dynamic loading sites
 
-1. **Enter Website URL** - Input the e-commerce site you want to scrape
-2. **Choose Scraping Method**:
-   - **Requests + BeautifulSoup**: Fast, works with static content
-   - **Selenium**: Slower but works with dynamic/JavaScript sites
-3. **Configure Settings**:
-   - Max pages to scrape
-   - Delay between requests (be respectful!)
-   - Choose what to scrape (products, categories, or both)
-4. **Start Scraping** - Click "Start Scraping" and monitor progress
-5. **Export Data** - Use CSV or Excel export options
+### Container Selection
+- **None**: Automatic product detection
+- **Class**: Specify CSS class name
+- **ID**: Specify CSS ID name
 
-## 📊 Data Extracted
+## 📊 API Support
 
-### Products
-- Product name
-- Price
-- Product URL
-- Category
-- Image URL (when available)
+### Supported API Types
+- **REST APIs**: Standard JSON APIs
+- **GraphQL**: Modern API queries
+- **Advertising APIs**: Criteo, Google Ads, etc.
+- **E-commerce APIs**: Best Buy, Nike, Amazon, etc.
 
-### Categories
-- Category name
-- Category URL
-- Product count
+### Pagination Patterns
+- **Page-based**: `?page=1&limit=50`
+- **Offset-based**: `?offset=0&limit=50`
+- **Cursor-based**: `?cursor=abc123`
+- **Custom patterns**: Site-specific pagination
 
-## 🔧 Dependencies
+### Special API Handling
+- **Best Buy**: Optimized for `api.bestbuy.ca` endpoints
+- **Criteo**: Handles advertising APIs with 12-product limits
+- **Nike**: Special handling for Nike Cloud APIs
+- **Amazon**: Enhanced headers and parameters
 
-- **requests** - HTTP requests
-- **beautifulsoup4** - HTML parsing
-- **pandas** - Data manipulation
-- **openpyxl** - Excel file support
-- **selenium** - Web browser automation
-- **webdriver-manager** - Automatic Chrome driver management
-- **lxml** - Fast XML/HTML parsing
+## 🎨 User Interface
 
-## 📁 Project Structure
+### Main Features
+- **Responsive Design**: Works on all screen sizes
+- **Scrollable Sections**: Horizontal and vertical scrolling
+- **Color-coded Status**: Visual feedback for different states
+- **Interactive Elements**: Buttons, checkboxes, and input fields
 
-```
-ecommerce-scraper/
-├── ecommerce_scraper/
-│   ├── __init__.py
-│   └── main.py          # Main application
-├── pyproject.toml       # uv/pip configuration
-├── setup.py            # Traditional setup
-├── install.py          # Automated installer
-├── README.md           # This file
-├── run.sh              # Unix launcher
-└── run.bat             # Windows launcher
-```
+### Data Management
+- **Field Selection**: Choose which columns to export
+- **Field Renaming**: Customize column names
+- **Data Preview**: View scraped data before export
+- **Export Options**: CSV and Excel formats
 
-## ⚡ Why uv?
+## 🔍 Troubleshooting
 
-This project uses `uv` as the package manager because it's:
-- **Fast** - 10-100x faster than pip
-- **Reliable** - Consistent dependency resolution
-- **Modern** - Built with Rust, designed for Python
-- **Compatible** - Works with existing pip/setuptools projects
+### Common Issues
 
-## 🤖 Selenium Setup
+**403 Errors**
+- Enable anti-detection features
+- Try different scraping methods
+- Use proxy or VPN
+- Check if site blocks automated access
 
-For dynamic websites, the scraper uses Selenium with Chrome:
-- Chrome browser is required
-- ChromeDriver is automatically downloaded via webdriver-manager
-- Runs in headless mode by default
+**Limited Products (12 products)**
+- You might be using an advertising API
+- Look for the actual product API
+- Use "Analyze API Structure" to understand the data
+- Check the help popup for guidance
+
+**Slow Scraping**
+- Reduce Max Pages
+- Increase Delay between requests
+- Use Requests method instead of Selenium
+- Enable Headless mode
+
+**No Products Found**
+- Check website structure
+- Try different container selectors
+- Use API Detection method
+- Verify the URL is correct
+
+### Debug Information
+- **Status Messages**: Real-time progress updates
+- **Error Logging**: Detailed error information
+- **API Analysis**: JSON structure breakdown
+- **Pagination Info**: Page-by-page progress
 
 ## 📈 Performance Tips
 
-1. **Use Requests method** for static sites (much faster)
-2. **Adjust delays** to be respectful to websites
-3. **Limit pages** to avoid overwhelming servers
-4. **Check robots.txt** before scraping
+### For Large Sites
+- Start with small Max Pages (1-5)
+- Use API endpoints when available
+- Enable anti-detection features
+- Use appropriate delays
 
-## 🔒 Ethical Scraping
+### For Fast Scraping
+- Use Requests method for simple sites
+- Disable unnecessary anti-detection
+- Use direct API endpoints
+- Minimize delays
 
-- Always check website's `robots.txt`
-- Respect rate limits and terms of service
-- Use appropriate delays between requests
-- Consider reaching out to website owners for permission
+### For Reliable Scraping
+- Enable all anti-detection features
+- Use longer delays
+- Try multiple scraping methods
+- Monitor status messages
 
-## 🐛 Troubleshooting
+## 🔒 Privacy & Ethics
 
-### Common Issues:
+### Best Practices
+- Respect robots.txt files
+- Use reasonable delays
+- Don't overload servers
+- Follow website terms of service
 
-1. **Chrome/ChromeDriver errors**:
-   ```bash
-   # Update Chrome and clear cache
-   uv run python -c "from webdriver_manager.chrome import ChromeDriverManager; ChromeDriverManager().install()"
-   ```
+### Anti-Detection
+- Rotate user agents
+- Add random delays
+- Use headless browsers
+- Mimic human behavior
 
-2. **Permission errors**:
-   ```bash
-   # On Unix systems
-   chmod +x run.sh
-   ```
+## 📝 Examples
 
-3. **Package conflicts**:
-   ```bash
-   # Clean and reinstall
-   uv clean
-   uv sync
-   ```
+### Basic Website Scraping
+```
+Website URL: https://example-store.com
+Method: Requests
+Max Pages: 5
+Delay: 1 second
+```
 
-## 📝 License
+### API Scraping
+```
+Website URL: https://www.bestbuy.ca
+API Endpoint: https://api.bestbuy.ca/v2/products?categoryPath.id=20001
+Method: API Detection
+Max Pages: 10
+```
 
-This project is provided for educational purposes. Always respect website terms of service and robots.txt files.
+### Anti-Detection Scraping
+```
+Website URL: https://www.nike.com
+Method: Selenium
+Headless: Enabled
+Rotate User Agents: Enabled
+Random Delays: Enabled
+```
 
-## 🤝 Contributing
+## 🤝 Support
 
-Feel free to submit issues, feature requests, or pull requests to improve the scraper.
+For issues and questions:
+1. Check the troubleshooting section
+2. Review the built-in documentation
+3. Contact your project provider
+4. Check the status messages for guidance
+
+## 📄 License
+
+This project is provided as-is for educational and research purposes. Please respect website terms of service and robots.txt files when scraping.
 
 ---
 
-**Happy Scraping! 🗷**
+**Version**: 1.0.0  
+**Last Updated**: 2024  
+**Compatibility**: Python 3.7+, Chrome browser
